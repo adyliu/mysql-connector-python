@@ -11,12 +11,12 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
@@ -74,17 +74,18 @@ else:
         "Python v%d.%d is not supported" % sys.version_info[0:2])
 
 package_dir['mysql.connector.django'] = os.path.join('python23', 'django')
+package_dir['mysql.connector.fabric'] = os.path.join('python23', 'fabric')
 
 name = 'mysql-connector-python'
 version = '{0}.{1}.{2}'.format(*VERSION[0:3])
 
 try:
     from support.distribution.commands import (
-        sdist, bdist, dist_rpm, build, dist_deb
+        sdist, bdist, dist_rpm, build, dist_deb, dist_osx
         )
 
     from distutils import dir_util
-    dir_util.copy_tree = copy_tree 
+    dir_util.copy_tree = copy_tree
 
     cmdclasses = {
         'build': build.Build,
@@ -96,6 +97,8 @@ try:
         'sdist_com': sdist.SourceCommercial,
         'sdist_gpl_deb': dist_deb.DebianBuiltDist,
         'bdist_com_deb': dist_deb.DebianCommercialBuilt,
+        'sdist_gpl_osx': dist_osx.BuildDistOSX,
+        'bdist_com_osx': dist_osx.BuildDistOSXcom,
     }
 
     if sys.version_info >= (2, 7):
@@ -113,10 +116,11 @@ except ImportError:
 
 packages = [
     'mysql',
-    'mysql.connector', 
+    'mysql.connector',
     'mysql.connector.locales',
     'mysql.connector.locales.eng',
     'mysql.connector.django',
+    'mysql.connector.fabric',
     ]
 description = "MySQL driver written in Python"
 long_description = """\

@@ -26,16 +26,21 @@ This module implements some constructors and singletons as required by the
 DB API v2.0 (PEP-249).
 """
 
+# Python Db API v2
+apilevel = '2.0'
+threadsafety = 1
+paramstyle = 'pyformat'
+
 import time
 import datetime
 
 from mysql.connector import constants
 
 class _DBAPITypeObject:
-    
+
     def __init__(self, *values):
         self.values = values
-        
+
     def __cmp__(self, other):
         if other in self.values:
             return 0

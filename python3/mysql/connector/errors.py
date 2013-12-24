@@ -32,6 +32,7 @@ from mysql.connector.locales import get_client_error
 # is similar, but hardcoded exceptions.
 _CUSTOM_ERROR_EXCEPTIONS = {}
 
+
 def custom_error_exception(error=None, exception=None):
     """Define custom exceptions for MySQL server errors
 
@@ -68,7 +69,7 @@ def custom_error_exception(error=None, exception=None):
 
     Returns a dictionary.
     """
-    global _CUSTOM_ERROR_EXCEPTIONS
+    global _CUSTOM_ERROR_EXCEPTIONS  # pylint: disable=W0603
 
     if isinstance(error, dict) and not len(error):
         _CUSTOM_ERROR_EXCEPTIONS = {}
@@ -82,7 +83,7 @@ def custom_error_exception(error=None, exception=None):
             "The error argument should be either an integer or dictionary")
 
     if isinstance(error, int):
-        error = { error: exception }
+        error = {error: exception}
 
     for errno, exception in error.items():
         if not isinstance(errno, int):
@@ -98,13 +99,13 @@ def custom_error_exception(error=None, exception=None):
 
 def get_mysql_exception(errno, msg, sqlstate=None):
     """Get the exception matching the MySQL error
-    
+
     This function will return an exception based on the SQLState. The given
     message will be passed on in the returned exception.
 
     The exception returned can be customized using the
     mysql.connector.custom_error_exception() function.
-    
+
     Returns an Exception
     """
     try:
@@ -133,17 +134,17 @@ def get_mysql_exception(errno, msg, sqlstate=None):
 
 def get_exception(packet):
     """Returns an exception object based on the MySQL error
-    
+
     Returns an exception object based on the MySQL error in the given
     packet.
-    
+
     Returns an Error-Object.
     """
     errno = errmsg = None
-    
+
     if packet[4] != 255:
         raise ValueError("Packet is not an error packet")
-    
+
     sqlstate = None
     try:
         packet = packet[5:]
@@ -155,14 +156,16 @@ def get_exception(packet):
             (packet, sqlstate) = utils.read_bytes(packet[1:], 5)
             sqlstate = sqlstate.decode('utf8')
             errmsg = packet.decode('utf8')
-    except Exception as err:
+    except Exception as err:  # pylint: disable=W0703
         return InterfaceError("Failed getting Error information (%r)" % err)
     else:
         return get_mysql_exception(errno, errmsg, sqlstate)
 
+
 class Error(Exception):
     """Exception that is base class for all other error exceptions"""
     def __init__(self, msg=None, errno=None, values=None, sqlstate=None):
+        super(Error, self).__init__()
         self.msg = msg
         self._full_msg = self.msg
         self.errno = errno or -1
@@ -189,82 +192,96 @@ class Error(Exception):
             else:
                 fmt = '{errno}: {msg}'
             self._full_msg = fmt.format(**fields)
-    
+
     def __str__(self):
         return self._full_msg
 
-class Warning(Exception):
+
+class Warning(Exception):  # pylint: disable=W0622
     """Exception for important warnings"""
     pass
+
 
 class InterfaceError(Error):
     """Exception for errors related to the interface"""
     pass
 
+
 class DatabaseError(Error):
     """Exception for errors related to the database"""
     pass
+
 
 class InternalError(DatabaseError):
     """Exception for errors internal database errors"""
     pass
 
+
 class OperationalError(DatabaseError):
     """Exception for errors related to the database's operation"""
     pass
+
 
 class ProgrammingError(DatabaseError):
     """Exception for errors programming errors"""
     pass
 
+
 class IntegrityError(DatabaseError):
     """Exception for errors regarding relational integrity"""
     pass
+
 
 class DataError(DatabaseError):
     """Exception for errors reporting problems with processed data"""
     pass
 
+
 class NotSupportedError(DatabaseError):
     """Exception for errors when an unsupported database feature was used"""
     pass
 
+
 class PoolError(Error):
-    """Exception raise for errors relating to connection pooling"""
+    """Exception for errors relating to connection pooling"""
     pass
 
+
+class MySQLFabricError(Error):
+    """Exception for errors relating to MySQL Fabric"""
+
 _SQLSTATE_CLASS_EXCEPTION = {
-    '02': DataError, # no data
-    '07': DatabaseError, # dynamic SQL error
-    '08': OperationalError, # connection exception
-    '0A': NotSupportedError, # feature not supported
-    '21': DataError, # cardinality violation
-    '22': DataError, # data exception
-    '23': IntegrityError, # integrity constraint violation
-    '24': ProgrammingError, # invalid cursor state
-    '25': ProgrammingError, # invalid transaction state
-    '26': ProgrammingError, # invalid SQL statement name
-    '27': ProgrammingError, # triggered data change violation
-    '28': ProgrammingError, # invalid authorization specification
-    '2A': ProgrammingError, # direct SQL syntax error or access rule violation
-    '2B': DatabaseError, # dependent privilege descriptors still exist
-    '2C': ProgrammingError, # invalid character set name
-    '2D': DatabaseError, # invalid transaction termination
-    '2E': DatabaseError, # invalid connection name
-    '33': DatabaseError, # invalid SQL descriptor name
-    '34': ProgrammingError, # invalid cursor name
-    '35': ProgrammingError, # invalid condition number
-    '37': ProgrammingError, # dynamic SQL syntax error or access rule violation
-    '3C': ProgrammingError, # ambiguous cursor name
-    '3D': ProgrammingError, # invalid catalog name
-    '3F': ProgrammingError, # invalid schema name
-    '40': InternalError, # transaction rollback
-    '42': ProgrammingError, # syntax error or access rule violation
-    '44': InternalError, # with check option violation
-    'HZ': OperationalError, # remote database access
+    '02': DataError,  # no data
+    '07': DatabaseError,  # dynamic SQL error
+    '08': OperationalError,  # connection exception
+    '0A': NotSupportedError,  # feature not supported
+    '21': DataError,  # cardinality violation
+    '22': DataError,  # data exception
+    '23': IntegrityError,  # integrity constraint violation
+    '24': ProgrammingError,  # invalid cursor state
+    '25': ProgrammingError,  # invalid transaction state
+    '26': ProgrammingError,  # invalid SQL statement name
+    '27': ProgrammingError,  # triggered data change violation
+    '28': ProgrammingError,  # invalid authorization specification
+    '2A': ProgrammingError,  # direct SQL syntax error or access rule violation
+    '2B': DatabaseError,  # dependent privilege descriptors still exist
+    '2C': ProgrammingError,  # invalid character set name
+    '2D': DatabaseError,  # invalid transaction termination
+    '2E': DatabaseError,  # invalid connection name
+    '33': DatabaseError,  # invalid SQL descriptor name
+    '34': ProgrammingError,  # invalid cursor name
+    '35': ProgrammingError,  # invalid condition number
+    '37': ProgrammingError,  # dynamic SQL syntax error or access rule violation
+    '3C': ProgrammingError,  # ambiguous cursor name
+    '3D': ProgrammingError,  # invalid catalog name
+    '3F': ProgrammingError,  # invalid schema name
+    '40': InternalError,  # transaction rollback
+    '42': ProgrammingError,  # syntax error or access rule violation
+    '44': InternalError,   # with check option violation
+    'HZ': OperationalError,  # remote database access
     'XA': IntegrityError,
     '0K': OperationalError,
-    'HY': DatabaseError, # default when no SQLState provided by MySQL server
+    'HY': DatabaseError,  # default when no SQLState provided by MySQL server
 }
 
 _ERROR_EXCEPTIONS = {

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?define ProductName="MySQL Connector Python"?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'> 
+  <Product Id="*"
+   Name="$(var.ProductName) v$(var.Version) for Python v$(var.PythonVersion)" Language="1033"
+   Version="$(var.Version)"
+   Manufacturer="Oracle"
+   UpgradeCode="$(var.UpgradeCode)">
+   
+    <Package Compressed="yes" InstallerVersion="200"
+     Description="$(var.ProductName) Installer"
+     Comments="Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved."
+     InstallScope="perMachine"/>
+   
+    <Property Id="PREVIOUSVERSIONSINSTALLED" Secure="yes" />
+   
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion OnlyDetect="no" IncludeMinimum="yes" IncludeMaximum="yes"
+       Minimum="1.0.0"
+       Maximum="$(var.Major_Version).$(var.Minor_Version).$(var.Patch_Version)"
+       Property="PREVIOUSVERSIONSINSTALLED"/>
+    </Upgrade>
+    
+    <Property Id="PYTHONINSTALLPATH">
+      <RegistrySearch Id="PythonInstallPath32" Root="HKLM" Type="raw"
+       Key="Software\Python\PythonCore\$(var.PythonVersion)\InstallPath" Win64="no"/>
+      <RegistrySearch Id="PythonInstallPath64" Root="HKLM" Type="raw"
+       Key="Software\Python\PythonCore\$(var.PythonVersion)\InstallPath" Win64="yes"/>
+    </Property>
+    
+    <Condition Message="Python v$(var.PythonVersion) not found. We only support Python installed using the Microsoft Windows Installer (MSI) downloaded from http://www.python.org/download/. Please check the Connector/Python manual on http://dev.mysql.com/doc/ for more information.">
+      Installed OR PYTHONINSTALLPATH
+    </Condition>
+    
+    <Media Id="1" Cabinet="ConnectorPython_Python.cab" EmbedCab="yes"/>
+   
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="INSTALLDIR" Name="$(var.PythonInstallDir)">
+        <Directory Id="PythonLibDir" Name="Lib">
+          <Directory Id="SitePackagesDir" Name="site-packages">
+            <Directory Id="MySQLPackageDir" Name="mysql">
+              <Directory Id="ConnectorPackageDir" Name="connector">
+                <Directory Id="DjangoDir" Name="django"/>
+                <Directory Id="FabricDir" Name="fabric"/>
+                <Directory Id="ConnectorLocalesDir" Name="locales">
+                  <Directory Id="LocalesEngDir" Name="eng"/>
+                </Directory>
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramFilesFolder" Name="ProgFilesFolder">
+        <Directory Id="CompanyDir" Name="MySQL">
+          <Directory Id="MyConnPyDir" Name="$(var.ProductName)">
+            <Directory Id="ExamplesDir" Name="Examples"/>
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="SitePackagesDir">
+      <Component Id="SitePackages" Guid="e8c482f2-c8fa-4e60-9ebb-83d045fdce20">
+        <File Id="EggInfo" Name="MySQL_Connector_Python-$(var.FullVersion)-py$(var.PythonVersion).egg-info"
+         Source="$(var.BDist)\MySQL_Connector_Python-$(var.FullVersion)-py$(var.PythonVersion).egg-info" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+    
+    <DirectoryRef Id="MySQLPackageDir">
+      <Component Id="MySQLPackage" Guid="b266a02b-67bb-4f06-82c8-4aab5a5b47a3">
+        <File Id="mysql_initpy" Name="__init__.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\__init__.$(var.PyExt)" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ConnectorPackageDir">
+      <Component Id="ConnectorPackage" Guid="350a233b-f95b-4824-ada5-4c68e78ceca3">
+        <File Id="initpy" Name="__init__.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\__init__.$(var.PyExt)" DiskId="1"/>
+        <File Id="connectionpy" Name="connection.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\connection.$(var.PyExt)" DiskId="1"/>
+        <File Id="constantspy" Name="constants.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\constants.$(var.PyExt)" DiskId="1"/>
+        <File Id="conversionpy" Name="conversion.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\conversion.$(var.PyExt)" DiskId="1"/>
+        <File Id="cursorpy" Name="cursor.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\cursor.$(var.PyExt)" DiskId="1"/>
+        <File Id="dbapipy" Name="dbapi.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\dbapi.$(var.PyExt)" DiskId="1"/>
+        <File Id="errorspy" Name="errors.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\errors.$(var.PyExt)" DiskId="1"/>
+        <File Id="errorcodepy" Name="errorcode.pyc"
+         Source="$(var.BDist)\mysql\connector\errorcode.$(var.PyExt)" DiskId="1"/>
+        <File Id="networkpy" Name="network.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\network.$(var.PyExt)" DiskId="1"/>
+        <File Id="protocolpy" Name="protocol.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\protocol.$(var.PyExt)" DiskId="1"/>
+        <File Id="utilspy" Name="utils.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\utils.$(var.PyExt)" DiskId="1"/>
+        <File Id="versionpy" Name="version.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\version.$(var.PyExt)" DiskId="1"/>
+        <File Id="poolingpy" Name="pooling.$(var.PyExt)"
+         Source="$(var.BDist)\mysql\connector\pooling.$(var.PyExt)" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ConnectorLocalesDir">
+      <Component Id="ConnectorLocales" Guid="09f885b6-f6e4-4749-af34-b2f2bd0fed86">
+        <File Id="locales_initpy" Name="__init__.pyc"
+         Source="$(var.BDist)\mysql\connector\locales\__init__.$(var.PyExt)" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="LocalesEngDir">
+      <Component Id="LocalesEng" Guid="873b6fca-4a2d-493e-9322-ee332dc5b7aa">
+        <File Id="eng_initpy" Name="__init__.pyc"
+         Source="$(var.BDist)\mysql\connector\locales\eng\__init__.$(var.PyExt)" DiskId="1"/>
+        <File Id="eng_clienterrorpy" Name="client_error.pyc"
+         Source="$(var.BDist)\mysql\connector\locales\eng\client_error.$(var.PyExt)" DiskId="1"/>        
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DjangoDir">
+      <Component Id="DjangoBackend" Guid="36b8f8d3-4d61-4992-8b0c-9b94afac6005">
+        <File Id="django_initpy" Name="__init__.pyc"
+         Source="$(var.BDist)\mysql\connector\django\__init__.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_basepy" Name="base.pyc"
+         Source="$(var.BDist)\mysql\connector\django\base.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_clientpy" Name="client.pyc"
+         Source="$(var.BDist)\mysql\connector\django\client.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_compilerpy" Name="compiler.pyc"
+         Source="$(var.BDist)\mysql\connector\django\compiler.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_creationpy" Name="creation.pyc"
+         Source="$(var.BDist)\mysql\connector\django\creation.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_introspectionpy" Name="introspection.pyc"
+         Source="$(var.BDist)\mysql\connector\django\introspection.$(var.PyExt)" DiskId="1"/>
+        <File Id="django_validationpy" Name="validation.pyc"
+         Source="$(var.BDist)\mysql\connector\django\validation.$(var.PyExt)" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="FabricDir">
+      <Component Id="Fabric" Guid="d73862fc-676c-47a9-9994-23fd812c7b24">
+        <File Id="fabric_initpy" Name="__init__.py"
+         Source="$(var.BDist)\mysql\connector\fabric\__init__.py" DiskId="1"/>
+        <File Id="fabric_balancingpy" Name="balancing.py"
+         Source="$(var.BDist)\mysql\connector\fabric\balancing.py" DiskId="1"/>
+        <File Id="fabric_cachingpy" Name="caching.py"
+         Source="$(var.BDist)\mysql\connector\fabric\caching.py" DiskId="1"/>
+        <File Id="fabric_connectionpy" Name="connection.py"
+         Source="$(var.BDist)\mysql\connector\fabric\connection.py" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="MyConnPyDir">
+      <Component Id="MyConnPyFiles" Guid="f0f7ecc4-8efd-4961-bab3-fb1b6486b42f">
+        <File Id="README" Name="README.txt"
+         Source="$(var.BDist)\README.txt" DiskId="1"/>
+        <File Id="LICENSE" Name="LICENSE.txt"
+         Source="$(var.BDist)\LICENSE.txt" DiskId="1"/>
+        <File Id="ManualPDF" Name="$(var.ProductName) v$(var.Major_Version).$(var.Minor_Version) Manual.pdf"
+         Source="$(var.ManualPDF)" DiskId="1"/>
+        <File Id="ManualHTML" Name="$(var.ProductName) v$(var.Major_Version).$(var.Minor_Version) Manual.html"
+         Source="$(var.ManualHTML)" DiskId="1"/>
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="SitePackages"/>
+      <ComponentRef Id="MySQLPackage"/>
+      <ComponentRef Id="ConnectorPackage"/>
+      <ComponentRef Id="MyConnPyFiles"/>
+      <ComponentRef Id="ConnectorLocales"/>
+      <ComponentRef Id="LocalesEng"/>
+      <ComponentRef Id="DjangoBackend"/>
+      <ComponentRef Id="Fabric"/>
+    </Feature>
+    
+    <CustomAction Id="SetInstallDir" Property="INSTALLDIR" Value="[PYTHONINSTALLPATH]"/>
+    <CustomAction Id="ErrDebug" Error="Installdir: [INSTALLDIR]"/>
+    
+    <InstallExecuteSequence>
+      <Custom Action="SetInstallDir" After="AppSearch">NOT Installed</Custom>
+      <RemoveExistingProducts Before="InstallInitialize"/>
+    </InstallExecuteSequence>
+
+  </Product>
+</Wix>
+

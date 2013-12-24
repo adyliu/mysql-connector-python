@@ -1,0 +1,34 @@
+#!/bin/sh -e
+# postinst script for mysql-connector-python
+
+#DEBHELPER#
+
+PYCODE="from distutils import sysconfig; print(sysconfig.get_python_lib())"
+PY2VERS=`pyversions -sv | sed -e "s/\s*2\.5\s*//g"`
+for PYVER in $PY2VERS
+do
+	PYSHARED="/usr/share/pyshared"
+	PYDIST=`python$PYVER -c "$PYCODE"`
+	PKGDIR="$PYDIST/mysql/"
+	if [ -d $PKGDIR ] && [ ! -f $PKGDIR/__init__.py ]; then
+		touch $PKGDIR/__init__.py
+	fi
+	if [ -d $PYSHARED/mysql ] && [ ! -f $PYSHARED/mysql/__init__.py ]; then
+		touch $PYSHARED/mysql/__init__.py
+	fi
+done
+
+if [ "`which py3versions 2>/dev/null`" != "" ]; then
+	PY3VERS=`py3versions -iv`
+	for PYVER in $PY3VERS
+	do
+		PYDIST=`python$PYVER -c "$PYCODE"`
+		PKGDIR="$PYDIST/mysql/"
+		if [ -d $PKGDIR ] && [ ! -f $PKGDIR/__init__.py ]; then
+			touch $PKGDIR/__init__.py
+		fi
+	done
+fi
+
+exit 0
+

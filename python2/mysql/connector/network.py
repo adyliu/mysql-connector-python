@@ -34,7 +34,7 @@ except ImportError:
     # If import fails, we don't have SSL support.
     pass
 
-from mysql.connector import constants, errors, utils
+from mysql.connector import constants, errors
 
 
 def _strioerror(err):
@@ -62,6 +62,7 @@ def _prepare_packets(buf, pktnr):
                 + struct.pack('<B', pktnr) + buf)
     return pkts
 
+
 class BaseMySQLSocket(object):
     """Base class for MySQL socket communication
 
@@ -71,14 +72,15 @@ class BaseMySQLSocket(object):
       mysql.connector.network.MySQLUnixSocket
     """
     def __init__(self):
-        self.sock = None # holds the socket connection
+        self.sock = None  # holds the socket connection
         self._connection_timeout = None
         self._packet_number = -1
         self._packet_queue = deque()
         self.recvsize = 8192
-    
+
     @property
     def next_packet_number(self):
+        """Generates the next packet number"""
         self._packet_number = self._packet_number + 1
         if self._packet_number > 255:
             self._packet_number = 0
@@ -103,7 +105,7 @@ class BaseMySQLSocket(object):
     def send_plain(self, buf, packet_number=None):
         """Send packets to the MySQL server"""
         if packet_number is None:
-            self.next_packet_number
+            self.next_packet_number  # pylint: disable=W0104
         else:
             self._packet_number = packet_number
         packets = _prepare_packets(buf, self._packet_number)
@@ -120,7 +122,7 @@ class BaseMySQLSocket(object):
     def send_compressed(self, buf, packet_number=None):
         """Send compressed packets to the MySQL server"""
         if packet_number is None:
-            self.next_packet_number
+            self.next_packet_number  # pylint: disable=W0104
         else:
             self._packet_number = packet_number
         pktnr = self._packet_number
@@ -282,11 +284,12 @@ class BaseMySQLSocket(object):
         """Set the connection timeout"""
         self._connection_timeout = timeout
 
+# pylint: disable=C0103
     def switch_to_ssl(self, ca, cert, key, verify_cert=False):
         """Switch the socket to use SSL"""
         if not self.sock:
             raise errors.InterfaceError(errno=2048)
-        
+
         if verify_cert:
             cert_reqs = ssl.CERT_REQUIRED
         else:
@@ -304,6 +307,7 @@ class BaseMySQLSocket(object):
         except (ssl.SSLError, IOError) as err:
             raise errors.InterfaceError(
                 errno=2055, values=(self.get_address(), _strioerror(err)))
+# pylint: enable=C0103
 
 
 class MySQLUnixSocket(BaseMySQLSocket):
@@ -328,6 +332,7 @@ class MySQLUnixSocket(BaseMySQLSocket):
                 errno=2002, values=(self.get_address(), _strioerror(err)))
         except StandardError as err:
             raise errors.InterfaceError(str(err))
+
 
 class MySQLTCPSocket(BaseMySQLSocket):
     """MySQL socket class using TCP/IP
@@ -369,7 +374,7 @@ class MySQLTCPSocket(BaseMySQLSocket):
             raise errors.InterfaceError(
                 errno=2003, values=(self.get_address(), _strioerror(err)))
 
-        (self._family, socktype, proto, canonname, sockaddr) = addrinfo
+        (self._family, socktype, proto, _, sockaddr) = addrinfo
 
         # Instanciate the socket and connect
         try:

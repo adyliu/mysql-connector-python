@@ -21,55 +21,61 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
-"""Implementing the MySQL Client/Server protocol
+"""Implements the MySQL Client/Server protocol
 """
 
 import struct
 import datetime
 from decimal import Decimal
 
+# pylint: disable=F0401
 try:
     from hashlib import sha1
 except ImportError:
     from sha import new as sha1
+# pylint: enable=F0401
 
 from mysql.connector.constants import (FieldFlag, ServerCmd, FieldType)
 from mysql.connector import (errors, utils)
 
 
 class MySQLProtocol(object):
+    """
+    Implemets MySQL client/server protocol.
+    Creates and parse packets based on MySQL client/server protocol.
+    """
     def _scramble_password(self, passwd, seed):
         """Scramble a password ready to send to MySQL"""
         hash4 = None
-        try: 
+        try:
             hash1 = sha1(passwd).digest()
-            hash2 = sha1(hash1).digest() # Password as found in mysql.user()
+            hash2 = sha1(hash1).digest()  # Password as found in mysql.user()
             hash3 = sha1(seed + hash2).digest()
-            xored = [ h1 ^ h3 for (h1,h3) in zip(hash1, hash3) ]
+            xored = [h1 ^ h3 for (h1, h3) in zip(hash1, hash3)]
             hash4 = struct.pack('20B', *xored)
-        except Exception as e:
-            raise errors.InterfaceError('Failed scrambling password; %s' % e)
-        
+        except Exception as err:
+            raise errors.InterfaceError('Failed scrambling password; %s' % err)
+
         return hash4
 
-    def _prepare_auth(self, usr, pwd, db, flags, seed):
+    def _prepare_auth(self, usr, pwd, dbname, flags, seed):
         """Prepare elements of the authentication packet"""
         if usr is not None and len(usr) > 0:
             _username = usr.encode('utf-8') + b'\x00'
         else:
             _username = b'\x00'
-        
+
         if pwd is not None and len(pwd) > 0:
             _password = utils.int1store(20) +\
-                self._scramble_password(pwd.encode('utf-8'),seed)
+                self._scramble_password(pwd.encode('utf-8'), seed)
         else:
             _password = b'\x00'
-        
-        if db is not None and len(db):
-            _database = db.encode('utf-8') + b'\x00'
+
+        if dbname is not None and len(dbname):
+            _database = dbname.encode('utf-8') + b'\x00'
         else:
             _database = b'\x00'
-        
+
         return (_username, _password, _database)
 
     def make_auth(self, seed, username=None, password=None, database=None,
@@ -80,9 +86,9 @@ class MySQLProtocol(object):
 
         auth = self._prepare_auth(username, password, database,
                                   client_flags, seed)
-        data =  utils.int4store(client_flags) +\
-                utils.int4store(max_allowed_packet) +\
-                utils.int1store(charset) +\
+        data = utils.int4store(client_flags) +\
+               utils.int4store(max_allowed_packet) +\
+               utils.int1store(charset) +\
                 b'\x00' * 23 + auth[0] + auth[1] + auth[2]
         return data
 
@@ -93,26 +99,26 @@ class MySQLProtocol(object):
                utils.int4store(max_allowed_packet) +\
                utils.int1store(charset) +\
                b'\x00' * 23
-    
+
     def make_command(self, command, argument=None):
         """Make a MySQL packet containing a command"""
         data = utils.int1store(command)
         if argument is not None:
             data += argument
         return data
-    
+
     def make_change_user(self, seed, username=None, password=None,
                          database=None, charset=33, client_flags=0):
         """Make a MySQL packet with the Change User command"""
         if not seed:
             raise errors.ProgrammingError('Seed missing')
-        
+
         auth = self._prepare_auth(username, password, database,
                                   client_flags, seed)
         data = utils.int1store(ServerCmd.CHANGE_USER) +\
                auth[0] + auth[1] + auth[2] + utils.int2store(charset)
         return data
-        
+
     def parse_handshake(self, packet):
         """Parse a MySQL Handshake-packet"""
         res = {}
@@ -121,73 +127,82 @@ class MySQLProtocol(object):
             packet, end=b'\x00')
         (packet, res['server_threadid']) = utils.read_int(packet, 4)
         (packet, res['scramble']) = utils.read_bytes(packet, 8)
-        packet = packet[1:] # Filler 1 * \x00
+        packet = packet[1:]  # Filler 1 * \x00
         (packet, res['capabilities']) = utils.read_int(packet, 2)
         (packet, res['charset']) = utils.read_int(packet, 1)
         (packet, res['server_status']) = utils.read_int(packet, 2)
-        packet = packet[13:] # Filler 13 * \x00
+        packet = packet[13:]  # Filler 13 * \x00
         (packet, scramble_next) = utils.read_bytes(packet, 12)
         res['scramble'] += scramble_next
         return res
-        
+
     def parse_ok(self, packet):
         """Parse a MySQL OK-packet"""
         if not packet[4] == 0:
             raise errors.InterfaceError("Failed parsing OK packet.")
 
-        ok = {}
+        ok_packet = {}
         try:
-            (packet, ok['field_count']) = utils.read_int(packet[4:], 1)
-            (packet, ok['affected_rows']) = utils.read_lc_int(packet)
-            (packet, ok['insert_id']) = utils.read_lc_int(packet)
-            (packet, ok['server_status']) = utils.read_int(packet, 2)
-            (packet, ok['warning_count']) = utils.read_int(packet, 2)
+            ok_packet['field_count'] = struct.unpack('<xxxxB', packet[0:5])[0]
+            (packet, ok_packet['affected_rows']) = utils.read_lc_int(packet[5:])
+            (packet, ok_packet['insert_id']) = utils.read_lc_int(packet)
+            (ok_packet['server_status'],
+                ok_packet['warning_count']) = struct.unpack('<HH', packet[0:4])
+            packet = packet[4:]
             if packet:
-                (packet, ok['info_msg']) = utils.read_lc_string(packet)
-                ok['info_msg'] = ok['info_msg'].decode('utf-8')
-        except ValueError as err:
-            raise errors.InterfaceError(
-                "Failed parsing OK packet ({})".format(err))
-        return ok
-    
+                (packet, ok_packet['info_msg']) = utils.read_lc_string(packet)
+                ok_packet['info_msg'] = ok_packet['info_msg'].decode('utf-8')
+        except ValueError:
+            raise errors.InterfaceError("Failed parsing OK packet.")
+        return ok_packet
+
     def parse_column_count(self, packet):
         """Parse a MySQL packet with the number of columns in result set"""
-        return utils.read_lc_int(packet[4:])[1]
-        
+        try:
+            return utils.read_lc_int(packet[4:])[1]
+        except (struct.error, ValueError):
+            raise errors.InterfaceError("Failed parsing column count")
+
     def parse_column(self, packet):
         """Parse a MySQL column-packet"""
-        column = {}
-        (packet, column['catalog']) = utils.read_lc_string(packet[4:])
-        (packet, column['db']) = utils.read_lc_string(packet)
-        (packet, column['table']) = utils.read_lc_string(packet)
-        (packet, column['org_table']) = utils.read_lc_string(packet)
-        (packet, column['name']) = utils.read_lc_string(packet)
-        (packet, column['org_name']) = utils.read_lc_string(packet)
-        packet = packet[1:] # filler 1 * \x00
-        (packet, column['charset']) = utils.read_int(packet, 2)
-        (packet, column['length']) = utils.read_int(packet,4)
-        (packet, column['type']) = utils.read_int(packet, 1)
-        (packet, column['flags']) = utils.read_int(packet, 2)
-        (packet, column['decimal']) = utils.read_int(packet, 1)
-        packet = packet[2:] # filler 2 * \x00
-        
+        (packet, _) = utils.read_lc_string(packet[4:]) # catalog
+        (packet, _) = utils.read_lc_string(packet)  # db
+        (packet, _) = utils.read_lc_string(packet)  # table
+        (packet, _) = utils.read_lc_string(packet)  # org_table
+        (packet, name) = utils.read_lc_string(packet)  # name
+        (packet, _) = utils.read_lc_string(packet)  # org_name
+
+        try:
+            (_, _, field_type,
+             flags, _) = struct.unpack('<xHIBHBxx', packet)
+        except struct.error:
+            raise errors.InterfaceError("Failed parsing column information")
+
         return (
-            column['name'].decode('utf-8'),
-            column['type'],
-            None, # display_size
-            None, # internal_size
-            None, # precision
-            None, # scale
-            ~column['flags'] & FieldFlag.NOT_NULL, # null_ok
-            column['flags'], # MySQL specific
+            name.decode('utf-8'),
+            field_type,
+            None,  # display_size
+            None,  # internal_size
+            None,  # precision
+            None,  # scale
+            ~flags & FieldFlag.NOT_NULL,  # null_ok
+            flags,  # MySQL specific
             )
-        
+
     def parse_eof(self, packet):
         """Parse a MySQL EOF-packet"""
+        err_msg = "Failed parsing EOF packet."
         res = {}
-        packet = packet[1:] # disregard the first checking byte
-        (packet, res['warning_count']) = utils.read_int(packet[4:], 2)
-        (packet, res['status_flag']) = utils.read_int(packet, 2)
+        try:
+            unpacked = struct.unpack('<xxxBBHH', packet)
+        except struct.error:
+            raise errors.InterfaceError(err_msg)
+
+        if not (unpacked[1] == 254 and len(packet) <= 9):
+            raise errors.InterfaceError(err_msg)
+
+        res['warning_count'] = unpacked[2]
+        res['status_flag'] = unpacked[3]
         return res
 
     def parse_statistics(self, packet):
@@ -198,7 +213,7 @@ class MySQLProtocol(object):
         pairs = packet[4:].split(b'\x20\x20')
         for pair in pairs:
             try:
-                (lbl, val) = [ v.strip() for v in pair.split(b':', 2) ]
+                (lbl, val) = [v.strip() for v in pair.split(b':', 2)]
             except:
                 raise errors.InterfaceError(errmsg)
 
@@ -232,17 +247,17 @@ class MySQLProtocol(object):
             if i == count:
                 break
             packet = sock.recv()
-            if packet[0:3] == b'\xff\xff\xff':
-                data = packet[4:]
+            if packet.startswith(b'\xff\xff\xff'):
+                datas = [packet[4:]]
                 packet = sock.recv()
-                while packet[0:3] == b'\xff\xff\xff':
-                    data += packet[4:]
+                while packet.startswith(b'\xff\xff\xff'):
+                    datas.append(packet[4:])
                     packet = sock.recv()
                 if packet[4] == 254:
                     eof = self.parse_eof(packet)
                 else:
-                    data += packet[4:]
-                rowdata = utils.read_lc_string_list(data)
+                    datas.append(packet[4:])
+                rowdata = utils.read_lc_string_list(''.join(datas))
             elif packet[4] == 254:
                 eof = self.parse_eof(packet)
                 rowdata = None
@@ -257,33 +272,33 @@ class MySQLProtocol(object):
     def _parse_binary_integer(self, packet, field):
         """Parse an integer from a binary packet"""
         if field[1] == FieldType.TINY:
-            format = 'b'
+            format_ = 'b'
             length = 1
         elif field[1] == FieldType.SHORT:
-            format = 'h'
+            format_ = 'h'
             length = 2
         elif field[1] in (FieldType.INT24, FieldType.LONG):
-            format = 'i'
+            format_ = 'i'
             length = 4
         elif field[1] == FieldType.LONGLONG:
-            format = 'q'
+            format_ = 'q'
             length = 8
 
         if field[7] & FieldFlag.UNSIGNED:
-            format = format.upper()
+            format_ = format_.upper()
 
-        return (packet[length:], struct.unpack(format, packet[0:length])[0])
+        return (packet[length:], struct.unpack(format_, packet[0:length])[0])
 
     def _parse_binary_float(self, packet, field):
         """Parse a float/double from a binary packet"""
         if field[1] == FieldType.DOUBLE:
             length = 8
-            format = 'd'
+            format_ = 'd'
         else:
             length = 4
-            format = 'f'
+            format_ = 'f'
 
-        return (packet[length:], struct.unpack(format, packet[0:length])[0])
+        return (packet[length:], struct.unpack(format_, packet[0:length])[0])
 
     def _parse_binary_timestamp(self, packet, field):
         """Parse a timestamp from a binary packet"""
@@ -295,9 +310,9 @@ class MySQLProtocol(object):
                 month=packet[3],
                 day=packet[4])
         elif length >= 7:
-            ms = 0
+            mcs = 0
             if length == 11:
-                ms = struct.unpack('I', packet[8:length+1])[0]
+                mcs = struct.unpack('I', packet[8:length + 1])[0]
             value = datetime.datetime(
                 year=struct.unpack('H', packet[1:3])[0],
                 month=packet[3],
@@ -305,27 +320,27 @@ class MySQLProtocol(object):
                 hour=packet[5],
                 minute=packet[6],
                 second=packet[7],
-                microsecond=ms)
+                microsecond=mcs)
 
-        return (packet[length+1:], value)
+        return (packet[length + 1:], value)
 
     def _parse_binary_time(self, packet, field):
         """Parse a time value from a binary packet"""
         length = packet[0]
         data = packet[1:length + 1]
-        ms = 0
+        mcs = 0
         if length > 8:
-            ms = struct.unpack('I', data[8:])[0]
+            mcs = struct.unpack('I', data[8:])[0]
         days = struct.unpack('I', data[1:5])[0]
         if data[0] == 1:
             days *= -1
         tmp = datetime.timedelta(days=days,
                                  seconds=data[7],
-                                 microseconds=ms,
+                                 microseconds=mcs,
                                  minutes=data[6],
                                  hours=data[5])
 
-        return (packet[length+1:], tmp)
+        return (packet[length + 1:], tmp)
 
     def _parse_binary_values(self, fields, packet):
         """Parse values from a binary result packet"""
@@ -390,17 +405,17 @@ class MySQLProtocol(object):
         if not packet[4] == 0:
             raise errors.InterfaceError("Failed parsing Binary OK packet")
 
-        ok = {}
+        ok_pkt = {}
         try:
-            (packet, ok['statement_id']) = utils.read_int(packet[5:], 4)
-            (packet, ok['num_columns']) = utils.read_int(packet, 2)
-            (packet, ok['num_params']) = utils.read_int(packet, 2)
+            (packet, ok_pkt['statement_id']) = utils.read_int(packet[5:], 4)
+            (packet, ok_pkt['num_columns']) = utils.read_int(packet, 2)
+            (packet, ok_pkt['num_params']) = utils.read_int(packet, 2)
             packet = packet[1:]  # Filler 1 * \x00
-            (packet, ok['warning_count']) = utils.read_int(packet, 2)
+            (packet, ok_pkt['warning_count']) = utils.read_int(packet, 2)
         except ValueError:
             raise errors.InterfaceError("Failed parsing Binary OK packet")
 
-        return ok
+        return ok_pkt
 
     def _prepare_binary_integer(self, value):
         """Prepare an integer for the MySQL binary protocol"""
@@ -408,32 +423,32 @@ class MySQLProtocol(object):
         flags = 0
         if value < 0:
             if value >= -128:
-                format = 'b'
+                format_ = 'b'
                 field_type = FieldType.TINY
             elif value >= -32768:
-                format = 'h'
+                format_ = 'h'
                 field_type = FieldType.SHORT
             elif value >= -2147483648:
-                format = 'i'
+                format_ = 'i'
                 field_type = FieldType.LONG
             else:
-                format = 'q'
+                format_ = 'q'
                 field_type = FieldType.LONGLONG
         else:
             flags = 128
             if value <= 255:
-                format = 'B'
+                format_ = 'B'
                 field_type = FieldType.TINY
             elif value <= 65535:
-                format = 'H'
+                format_ = 'H'
                 field_type = FieldType.SHORT
             elif value <= 4294967295:
-                format = 'I'
+                format_ = 'I'
                 field_type = FieldType.LONG
             else:
                 field_type = FieldType.LONGLONG
-                format = 'Q'
-        return (struct.pack(format, value), field_type, flags)
+                format_ = 'Q'
+        return (struct.pack(format_, value), field_type, flags)
 
     def _prepare_binary_timestamp(self, value):
         """Prepare a timestamp object for the MySQL binary protocol
@@ -487,27 +502,27 @@ class MySQLProtocol(object):
 
         field_type = FieldType.TIME
         negative = 0
-        ms = None
+        mcs = None
         packed = b''
 
         if isinstance(value, datetime.timedelta):
             if value.days < 0:
                 negative = 1
-            (hours, r) = divmod(value.seconds, 3600)
-            (mins, secs) = divmod(r, 60)
+            (hours, remainder) = divmod(value.seconds, 3600)
+            (mins, secs) = divmod(remainder, 60)
             packed += (utils.int4store(abs(value.days)) +
                        utils.int1store(hours) +
                        utils.int1store(mins) +
                        utils.int1store(secs))
-            ms = value.microseconds
+            mcs = value.microseconds
         else:
             packed += (utils.int4store(0) +
                        utils.int1store(value.hour) +
                        utils.int1store(value.minute) +
                        utils.int1store(value.second))
-            ms = value.microsecond
-        if ms:
-            packed += utils.int4store(ms)
+            mcs = value.microsecond
+        if mcs:
+            packed += utils.int4store(mcs)
 
         packed = utils.int1store(negative) + packed
         packed = utils.int1store(len(packed)) + packed
@@ -526,19 +541,21 @@ class MySQLProtocol(object):
         return packet
 
     def make_stmt_execute(self, statement_id, data=(), parameters=(),
-                          flags=0, long_data_used={}):
+                          flags=0, long_data_used=None):
         """Make a MySQL packet with the Statement Execute command"""
         iteration_count = 1
-        null_bitmap = [0]*((len(data) + 7) // 8)
+        null_bitmap = [0] * ((len(data) + 7) // 8)
         values = []
         types = []
         packed = b''
+        if long_data_used is None:
+            long_data_used = {}
         if parameters and data:
             if len(data) != len(parameters):
                 raise errors.InterfaceError(
                     "Failed executing prepared statement: data values does not"
                     " match number of parameters")
-            for pos, param in enumerate(parameters):
+            for pos, _ in enumerate(parameters):
                 value = data[pos]
                 flags = 0
                 if value is None:
@@ -592,4 +609,3 @@ class MySQLProtocol(object):
             b''.join(values)
             )
         return b''.join(packet)
-

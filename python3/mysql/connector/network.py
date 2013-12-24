@@ -53,14 +53,15 @@ def _prepare_packets(buf, pktnr):
     pllen = len(buf)
     maxpktlen = constants.MAX_PACKET_LENGTH
     while pllen > maxpktlen:
-        pkts.append(b'\xff\xff\xff' + struct.pack('<B',pktnr) 
+        pkts.append(b'\xff\xff\xff' + struct.pack('<B', pktnr)
             + buf[:maxpktlen])
         buf = buf[maxpktlen:]
         pllen = len(buf)
         pktnr = pktnr + 1
-    pkts.append(struct.pack('<I',pllen)[0:3]
-                + struct.pack('<B',pktnr) + buf)
+    pkts.append(struct.pack('<I', pllen)[0:3]
+                + struct.pack('<B', pktnr) + buf)
     return pkts
+
 
 class BaseMySQLSocket(object):
     """Base class for MySQL socket communication
@@ -71,7 +72,7 @@ class BaseMySQLSocket(object):
       mysql.connector.network.MySQLUnixSocket
     """
     def __init__(self):
-        self.sock = None # holds the socket connection
+        self.sock = None  # holds the socket connection
         self._connection_timeout = None
         self._packet_number = -1
         self._packet_queue = deque()
@@ -79,11 +80,12 @@ class BaseMySQLSocket(object):
 
     @property
     def next_packet_number(self):
+        """Increments the packet number"""
         self._packet_number = self._packet_number + 1
         if self._packet_number > 255:
             self._packet_number = 0
         return self._packet_number
-    
+
     def open_connection(self):
         """Open the socket"""
         raise NotImplementedError
@@ -91,7 +93,7 @@ class BaseMySQLSocket(object):
     def get_address(self):
         """Get the location of the socket"""
         raise NotImplementedError
-    
+
     def close_connection(self):
         """Close the socket"""
         try:
@@ -100,10 +102,10 @@ class BaseMySQLSocket(object):
         except (socket.error, AttributeError):
             pass
 
-    def send_plain(self, buf,  packet_number=None):
+    def send_plain(self, buf, packet_number=None):
         """Send packets to the MySQL server"""
         if packet_number is None:
-            self.next_packet_number
+            self.next_packet_number  # pylint: disable=W0104
         else:
             self._packet_number = packet_number
         packets = _prepare_packets(buf, self._packet_number)
@@ -120,7 +122,7 @@ class BaseMySQLSocket(object):
     def send_compressed(self, buf, packet_number=None):
         """Send compressed packets to the MySQL server"""
         if packet_number is None:
-            self.next_packet_number
+            self.next_packet_number  # pylint: disable=W0104
         else:
             self._packet_number = packet_number
         pktnr = self._packet_number
@@ -128,7 +130,7 @@ class BaseMySQLSocket(object):
         zpkts = []
         maxpktlen = constants.MAX_PACKET_LENGTH
         if pllen > maxpktlen:
-            pkts = _prepare_packets(buf,pktnr)
+            pkts = _prepare_packets(buf, pktnr)
             tmpbuf = b''.join(pkts)
             del pkts
             seqid = 0
@@ -149,9 +151,9 @@ class BaseMySQLSocket(object):
                 seqid = seqid + 1
             if tmpbuf:
                 zbuf = zlib.compress(tmpbuf)
-                zpkts.append(struct.pack('<I',len(zbuf))[0:3]
-                                         + struct.pack('<B',seqid)
-                                         + struct.pack('<I',pllen)[0:3]
+                zpkts.append(struct.pack('<I', len(zbuf))[0:3]
+                                         + struct.pack('<B', seqid)
+                                         + struct.pack('<I', pllen)[0:3]
                                          + zbuf)
             del tmpbuf
         else:
@@ -171,7 +173,6 @@ class BaseMySQLSocket(object):
                              + pkt)
 
         for zip_packet in zpkts:
-            zpktlen = len(zip_packet)
             try:
                 self.sock.sendall(zip_packet)
             except IOError as err:
@@ -179,7 +180,7 @@ class BaseMySQLSocket(object):
                     errno=2055, values=(self.get_address(), _strioerror(err)))
             except AttributeError:
                 raise errors.OperationalError(errno=2006)
-    
+
     def recv_plain(self):
         """Receive packets from the MySQL server"""
         packet = b''
@@ -210,7 +211,7 @@ class BaseMySQLSocket(object):
             raise errors.OperationalError(
                 errno=2055, values=(self.get_address(), _strioerror(err)))
     recv = recv_plain
-    
+
     def _split_zipped_payload(self, packet_bunch):
         """Split compressed payload"""
         while packet_bunch:
@@ -225,7 +226,7 @@ class BaseMySQLSocket(object):
             return self._packet_queue.popleft()
         except IndexError:
             pass
-        
+
         header = b''
         packets = []
         try:
@@ -260,7 +261,7 @@ class BaseMySQLSocket(object):
         except IOError as err:
             raise errors.OperationalError(
                 errno=2055, values=(self.get_address(), _strioerror(err)))
-        
+
         tmp = []
         for packet in packets:
             payload_length = struct.unpack("<I", header[4:7] + b'\x00')[0]
@@ -276,11 +277,12 @@ class BaseMySQLSocket(object):
             return self._packet_queue.popleft()
         except IndexError:
             pass
-    
+
     def set_connection_timeout(self, timeout):
         """Set the connection timeout"""
         self._connection_timeout = timeout
 
+# pylint: disable=C0103
     def switch_to_ssl(self, ca, cert, key, verify_cert=False):
         """Switch the socket to use SSL"""
         if not self.sock:
@@ -303,6 +305,7 @@ class BaseMySQLSocket(object):
         except (ssl.SSLError, IOError) as err:
             raise errors.InterfaceError(
                 errno=2055, values=(self.get_address(), _strioerror(err)))
+# pylint: enable=C0103
 
 
 class MySQLUnixSocket(BaseMySQLSocket):
@@ -313,10 +316,10 @@ class MySQLUnixSocket(BaseMySQLSocket):
     def __init__(self, unix_socket='/tmp/mysql.sock'):
         super().__init__()
         self.unix_socket = unix_socket
-    
+
     def get_address(self):
         return self.unix_socket
-        
+
     def open_connection(self):
         try:
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -327,7 +330,8 @@ class MySQLUnixSocket(BaseMySQLSocket):
                 errno=2002, values=(self.get_address(), _strioerror(err)))
         except Exception as err:
             raise errors.InterfaceError(str(err))
-        
+
+
 class MySQLTCPSocket(BaseMySQLSocket):
     """MySQL socket class using TCP/IP
 
@@ -342,15 +346,17 @@ class MySQLTCPSocket(BaseMySQLSocket):
 
     def get_address(self):
         return "{}:{}".format(self.server_host, self.server_port)
-        
+
     def open_connection(self):
         """Open the TCP/IP connection to the MySQL server
         """
         # Get address information
         addrinfo = None
         try:
-            addrinfos = socket.getaddrinfo(self.server_host, self.server_port,
-                                           0, 0, socket.SOL_TCP)
+            addrinfos = socket.getaddrinfo(self.server_host,
+                                           self.server_port,
+                                           0, socket.SOCK_STREAM,
+                                           socket.SOL_TCP)
             # If multiple results we favor IPv4, unless IPv6 was forced.
             for info in addrinfos:
                 if self.force_ipv6 and info[0] == socket.AF_INET6:
@@ -368,7 +374,7 @@ class MySQLTCPSocket(BaseMySQLSocket):
             raise errors.InterfaceError(
                 errno=2003, values=(self.get_address(), _strioerror(err)))
 
-        (self._family, socktype, proto, canonname, sockaddr) = addrinfo
+        (self._family, socktype, proto, _, sockaddr) = addrinfo
 
         # Instanciate the socket and connect
         try:

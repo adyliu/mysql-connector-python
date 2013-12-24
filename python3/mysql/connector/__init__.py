@@ -27,26 +27,22 @@ MySQL Connector/Python - MySQL drive written in Python
 
 import threading
 
-# Python Db API v2
-apilevel = '2.0'
-threadsafety = 1
-paramstyle = 'pyformat'
-
 from .connection import MySQLConnection
-from .errors import (
-    Error, Warning, InterfaceError, DatabaseError, 
-    NotSupportedError, DataError, IntegrityError, ProgrammingError, 
+from .errors import (  # pylint: disable=W0622
+    Error, Warning, InterfaceError, DatabaseError,
+    NotSupportedError, DataError, IntegrityError, ProgrammingError,
     OperationalError, InternalError, custom_error_exception, PoolError)
-from .constants import FieldFlag, FieldType, CharacterSet,\
+from .constants import FieldFlag, FieldType, CharacterSet, \
     RefreshOption, ClientFlag
 from mysql.connector.dbapi import (
     Date, Time, Timestamp, Binary, DateFromTicks, DateFromTicks,
     TimestampFromTicks, TimeFromTicks,
-    STRING, BINARY, NUMBER, DATETIME, ROWID)
+    STRING, BINARY, NUMBER, DATETIME, ROWID,
+    apilevel, threadsafety, paramstyle)
 from mysql.connector.pooling import (
     MySQLConnectionPool, generate_pool_name, CNX_POOL_ARGS,
     CONNECTION_POOL_LOCK)
-
+import mysql.connector.fabric
 
 try:
     from mysql.connector import version
@@ -60,7 +56,8 @@ except ImportError:
 
 _CONNECTION_POOLS = {}
 
-def Connect(*args, **kwargs):
+
+def connect(*args, **kwargs):
     """Create or get a MySQL connection object
 
     In its simpliest form, Connect() will open a connection to a
@@ -72,9 +69,11 @@ def Connect(*args, **kwargs):
 
     Returns MySQLConnection or PooledMySQLConnection.
     """
+    if 'fabric' in kwargs:
+        return mysql.connector.fabric.connect(*args, **kwargs)
+
     # Pooled connections
     if any([key in kwargs for key in CNX_POOL_ARGS]):
-        global CONNECTION_POOL_LOCK
         # If no pool name specified, generate one
         try:
             pool_name = kwargs['pool_name']
@@ -103,25 +102,25 @@ def Connect(*args, **kwargs):
 
     # Regular connection
     return MySQLConnection(*args, **kwargs)
-connect = Connect
+Connect = connect  # pylint: disable=C0103
 
 __version_info__ = version.VERSION
 __version__ = version.VERSION_TEXT
 
 __all__ = [
     'MySQLConnection', 'Connect', 'custom_error_exception',
-    
+
     # Some useful constants
-    'FieldType','FieldFlag','ClientFlag','CharacterSet','RefreshOption',
+    'FieldType', 'FieldFlag', 'ClientFlag', 'CharacterSet', 'RefreshOption',
 
     # Error handling
-    'Error','Warning',
-    'InterfaceError','DatabaseError',
-    'NotSupportedError','DataError','IntegrityError','ProgrammingError',
-    'OperationalError','InternalError',
-    
+    'Error', 'Warning',
+    'InterfaceError', 'DatabaseError',
+    'NotSupportedError', 'DataError', 'IntegrityError', 'ProgrammingError',
+    'OperationalError', 'InternalError',
+
     # DBAPI PEP 249 required exports
-    'connect','apilevel','threadsafety','paramstyle',
+    'connect', 'apilevel', 'threadsafety', 'paramstyle',
     'Date', 'Time', 'Timestamp', 'Binary',
     'DateFromTicks', 'DateFromTicks', 'TimestampFromTicks', 'TimeFromTicks',
     'STRING', 'BINARY', 'NUMBER',

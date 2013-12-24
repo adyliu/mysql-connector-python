@@ -1,0 +1,51 @@
+Source: mysql-connector-python-commercial
+Priority: extra
+Section: python
+Maintainer: Oracle and/or its affiliates Product Engineering Team <mysql-build@oss.oracle.com>
+Build-Depends: debhelper (>= 8.0.0), python (>= 2.6.6-3~)
+Standards-Version: 3.9.3
+Homepage: http://dev.mysql.com/downloads/connector/python/
+X-Python-Version: >= 2.6
+X-Python3-Version: >= 3.1
+
+Package: mysql-connector-python-commercial
+Architecture: all
+Depends: python2.6 | python2.7, python (>= 2.6.3)
+Conflicts: python-mysql.connector, mysql-connector-python
+Description: MySQL database driver written in pure Python
+ This is a release of MySQL Connector/Python, Oracle's dual-
+ license Python Driver for MySQL. For the avoidance of
+ doubt, this particular copy of the software is released
+ under a commercial license and the GNU General Public
+ License does not apply. MySQL Connector/Python is brought
+ to you by Oracle.
+ .
+ Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ .
+ This distribution may include materials developed by third
+ parties. For license and attribution notices for these
+ materials, please refer to the documentation that accompanies
+ this distribution (see the "Licenses for Third-Party Components"
+ appendix) or view the online documentation at 
+ <http://dev.mysql.com/doc/>
+
+Package: mysql-connector-python-commercial-py3
+Architecture: all
+Depends: python3 (>= 3.2)
+Conflicts: python3-mysql.connector, mysql-connector-python
+Description: MySQL database driver written in pure Python 3
+ This is a release of MySQL Connector/Python, Oracle's dual-
+ license Python Driver for MySQL. For the avoidance of
+ doubt, this particular copy of the software is released
+ under a commercial license and the GNU General Public
+ License does not apply. MySQL Connector/Python is brought
+ to you by Oracle.
+ .
+ Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ .
+ This distribution may include materials developed by third
+ parties. For license and attribution notices for these
+ materials, please refer to the documentation that accompanies
+ this distribution (see the "Licenses for Third-Party Components"
+ appendix) or view the online documentation at 
+ <http://dev.mysql.com/doc/>

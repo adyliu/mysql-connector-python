@@ -1,0 +1,5 @@
+mysql-connector-python-commercial (1.2.0-1) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Geert Vanderkelen <geert.vanderkelen@oracle.com>  Fri, 29 Nov 2013 9:00:00 +0200

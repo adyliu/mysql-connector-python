@@ -1,0 +1,61 @@
+#!/usr/bin/make -f
+
+DEB_PYTHON_INSTALL_ARGS_ALL = --install-layout=deb
+
+# Check whether we have Python v3 support
+ifneq ($(shell which py3versions 2>/dev/null),)
+  WITHPYTHON="python2,python3"
+  PYTHON3_SUPPORTED=$(shell py3versions -sv)
+else
+  WITHPYTHON="python2"
+  PYTHON3_SUPPORTED=
+endif
+
+# We do not support Python v2.5
+PYTHON2_SUPPORTED=$(shell pyversions -sv | sed -e "s/\s*2\.5\s*//g")
+
+%:
+	dh $@ --buildsystem=python_distutils --with $(WITHPYTHON)
+
+override_dh_auto_build:
+	# The mysql/__init__.py modules are removed and recreated in the
+	# postinst script.
+
+	# Python v3
+	set -xe; for pyver in $(PYTHON2_SUPPORTED); do \
+		python$$pyver setup.py \
+			build --build-base=build --build-lib=build/python2; \
+		rm build/python2/mysql/__init__.py; \
+	done
+
+	# Python v3
+	set -xe; for pyver in $(PYTHON3_SUPPORTED); do \
+		python$$pyver setup.py \
+			build --build-base=build --build-lib=build/python3; \
+		rm build/python3/mysql/__init__.py; \
+	done
+
+override_dh_auto_install:
+	# We make sure we do not build again, since mysql/__init__.py has
+	# to be removed, which is done in dh_auto_build
+
+	# Python v2
+	set -xe; \
+	DESTDIR=$(CURDIR)/debian/mysql-connector-python; \
+	for pyver in $(PYTHON2_SUPPORTED); do \
+		python$$pyver setup.py \
+			install_lib --build-dir=build/python2 \
+			install --skip-build --install-layout=deb \
+			--root $$DESTDIR; \
+	done
+
+	# Python v3
+	set -xe; \
+	DESTDIR=$(CURDIR)/debian/mysql-connector-python-py3; \
+	for pyver in $(PYTHON3_SUPPORTED); do \
+		python$$pyver setup.py \
+			install_lib --build-dir=build/python3 \
+			install --skip-build --install-layout=deb \
+			--root $$DESTDIR; \
+	done
+

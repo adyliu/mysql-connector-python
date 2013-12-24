@@ -38,6 +38,7 @@ CNX_POOL_MAXSIZE = 32
 CNX_POOL_MAXNAMESIZE = 64
 CNX_POOL_NAMEREGEX = re.compile(r'[^a-zA-Z0-9._\-*$#]')
 
+
 def generate_pool_name(**kwargs):
     """Generate a pool name
 
@@ -120,7 +121,7 @@ class PooledMySQLConnection(object):
 
 
 class MySQLConnectionPool(object):
-    """Class defining a pool of MySQL connections 
+    """Class defining a pool of MySQL connections
     """
     def __init__(self, pool_size=5, pool_name=None, **kwargs):
         """Initialize
@@ -130,6 +131,8 @@ class MySQLConnectionPool(object):
         arguments, kwargs, are configuration arguments for MySQLConnection
         instances.
         """
+        self._pool_size = None
+        self._pool_name = None
         self._set_pool_size(pool_size)
         self._set_pool_name(pool_name or generate_pool_name(**kwargs))
         self._cnx_config = {}
@@ -168,7 +171,7 @@ class MySQLConnectionPool(object):
         self._pool_size = pool_size
 
     def _set_pool_name(self, pool_name):
-        """Set the name of the pool
+        r"""Set the name of the pool
 
         This method checks the validity and sets the name of the pool.
 
@@ -205,6 +208,24 @@ class MySQLConnectionPool(object):
                 raise errors.PoolError(
                     "Connection configuration not valid: {0}".format(err))
 
+    def _queue_connection(self, cnx):
+        """Put connection back in the queue
+
+        This method is putting a connection back in the queue. It will not
+        acquire a lock as the methods using _queue_connection() will have it
+        set.
+
+        Raises PoolError on errors.
+        """
+        if not isinstance(cnx, MySQLConnection):
+            raise errors.PoolError(
+                "Connection instance not subclass of MySQLConnection.")
+
+        try:
+            self._cnx_queue.put(cnx, block=False)
+        except Queue.Full:
+            errors.PoolError("Failed adding connection; queue is full")
+
     def add_connection(self, cnx=None):
         """Add a connection to the pool
 
@@ -229,16 +250,15 @@ class MySQLConnectionPool(object):
 
             if not cnx:
                 cnx = MySQLConnection(**self._cnx_config)
+                # pylint: disable=W0212
                 cnx._pool_config_version = self._config_version
+                # pylint: enable=W0212
             else:
                 if not isinstance(cnx, MySQLConnection):
                     raise errors.PoolError(
                         "Connection instance not subclass of MySQLConnection.")
 
-            try:
-                self._cnx_queue.put(cnx, block=False)
-            except Queue.Full:
-                errors.PoolError("Failed adding connection; queue is full")
+            self._queue_connection(cnx)
 
     def get_connection(self):
         """Get a connection from the pool
@@ -260,15 +280,18 @@ class MySQLConnectionPool(object):
                 raise errors.PoolError(
                     "Failed getting connection; pool exhausted")
 
+            # pylint: disable=W0212
             if (not cnx.is_connected()
                 or self._config_version != cnx._pool_config_version):
                 cnx.config(**self._cnx_config)
                 try:
                     cnx.reconnect()
-                except:
-                    self.add_connection(cnx)
+                except errors.InterfaceError:
+                    # Failed to reconnect, give connection back to pool
+                    self._queue_connection(cnx)
                     raise
                 cnx._pool_config_version = self._config_version
+            # pylint: enable=W0212
 
             return PooledMySQLConnection(self, cnx)
 
@@ -290,7 +313,7 @@ class MySQLConnectionPool(object):
                     cnx = cnxq.get(block=False)
                     cnx.disconnect()
                     cnt += 1
-                except queue.Empty:
+                except Queue.Empty:
                     return cnt
                 except errors.PoolError:
                     raise

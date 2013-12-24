@@ -3,7 +3,7 @@ mysql-connector-python
 
 source mirror of official mysql-connector-python with patches
 
-* Current version: 1.1.2a
+* Current version: 1.2.0a
 * Official website: http://dev.mysql.com/doc/connector-python/en/index.html
 * Release Notes: http://dev.mysql.com/doc/relnotes/connector-python/en/
 
